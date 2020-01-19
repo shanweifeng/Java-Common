@@ -1831,3 +1831,243 @@ import static org,junit.Assert.*;
 assertEquals(buf.readSlice(3), read);
 ```
 > * 9.2.1 测试入站消息
+```text
+图9-2展示了一个简单的ByteToMessageDecoder实现。给定足够的数据，这个实现将产生固定大小的帧。如果没有足够的数据可供读取，它将等待下一个数据块的到来，并将再次检查是否能够产生一个新的帧。
+正如图中右侧的帧看到的那样，这个特定的解码器将产生固定为3字节大小的帧。因此可能需要多个事件来提供足够的字节数以产生一个帧。
+最终每个帧都会被传递给ChannelPipeline中的下一个ChannelHandler。
+```
+![图9-2通过FixedLehgthFrameDecoder解码](./doc/image/图9-2通过FixedLehgthFrameDecoder解码.png)
+```java
+// 代码清单9-1 FixedLengthFrameDecoder
+// 扩展ByteToMessageDecoder以处理入站字节，并将它们解码为消息 
+public class FixedLengthFrameDecoder extends ByteToMessageDecoder {
+    
+    private final int frameLength;
+    // 指定要生成的帧的长度
+    public FixedLengthFrameDecoder(int frameLength) {
+        if (frameLength <= 0) {
+            throw new IllegalArgumentException("frameLength must be a positive integer:" + frameLength);
+        }
+    }
+    
+    @Override
+    protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
+        // 检查是否有足够的字节可以被读取，以生成下一个帧
+        while(in.readableBytes() >= frameLength) {
+            // 从ByteBuf中读取一个新帧
+            ByteBuf buf = in.readBytes(frameLength);
+            // 将该帧添加到已被解码的消息列表中
+            out.add(buf);
+        }
+    }
+}
+```
+```java
+// 代码清单 9-2 测试fixedLengthFrameDecoder
+
+public class FixedLengthFrameDecoderTest{
+    // 使用了注解@Test标注，因此JUnit将会执行该方法
+    @Test
+    public void testFramesDecoded() {// 第一个测试方法 testFramesDecoded()
+        // 创建一个ByteBuf并存储9字节
+        ByteBuf buf = Unpooled.buffer();
+        for (int i = 0; i < 9; i++) {
+            buf.writeByte(i);
+        }
+        
+        ByteBuf input = buf.duplicate();
+        // 创建一个EmbeddedChannel,并添加一个FixedLengthFrameDecoder,其将以3字节的帧长度被测试
+        EmbeddedChannel channel = new EmbeddedChannel(
+            new FixedLengthFrameDecoder(3));
+        // write bytes  将数据写入EmbeddedChannel
+        assertTrue(channel.writeInbound(input.retain()));
+        // 标记Channel为已完成状态
+        assertTrue(channel.finish());
+        // read message  读取所生成的消息，并且验证是否有3帧（切片），其中每帧(切片)都为3字节
+        ByteBuf read = channel.readInbound();
+        assertEquals(buf.readSlice(3), read);
+        read.release();
+        
+        read = (ByteBuf) channel.readInbound();
+        assertEquals(buf.readSlice(3), read);
+        read.release();
+        
+        read = (ByteBuf) channel.readInbound();
+        assertEquals(buf.readSlice(3), read);
+        read.release();
+        
+        assertNull(channel.readInbound());
+        buf.release();
+    }
+    
+    @Test
+    public void testFramesDecoded2() {// 第二个测试方法testFramesDecoded2()
+        ByteBuf buf = Unpooled.buffer();
+        for(int i = 0; i < 9; i++) {
+            buf.writeBute(i);
+        }
+        ByteBuf input = buf.duplicate();
+        
+        EmbeddedChannel channel = new EmbeddedChannel(new FixedLengthFrameDecoder(3));
+        assertFalse(channel.writeInbound(input.readBytes(2)));// 返回false，因为没有一个完整的可供读取的帧
+        
+        assertTure(channel.writeInbound(input.readBytes(7)));
+        
+        assertTrue(channel.finish());
+        ByteBuf read = (ByteBuf) channel.readInbound();
+        assertEquals(buf.readSlice(3), read);
+        read.release();
+        
+        read = (ByteBuf) channel.readInbound();
+        assertEquals(buf.readSlice(3), read);
+        read.release();
+        
+        read = (ByteBuf) channel.readInbound();
+        assertEquals(buf.readSlice(3), read);
+        read.release();
+        
+        assertNull(channel.readInbound());
+        buf.release();
+    }
+}
+```
+```text
+testFramesDecoded()方法验证了：一个包含9个可读字节的ByteBuf被解码为3个ByteBuf，每个都包含了3字节。需要注意的是，仅通过一次对writeInbound()方法的调用，ByteBuf是如何被填充了9个可读字节的。在此之后，通过执行finish()方法，将EmbeddedChannel标记为了已完成状态。最后，通过调用readInbound()方法，从EmbeddedChannel中正好读取了3个帧和一个Null。
+
+testFramesDecoded2()方法也是类似的，只有一处不同：入站ByteBuf是通过两个步骤写入的。当writeInbound(input.readBytes(2)被调用时，返回了false，这是由于对readInbound()的后续调用将会返回数据，那么writeInbound()方法将会返回true。但是只有当有3个或者更多的字节可供读取时，FixedLengthFrameDecoder才会产生输出。该测试剩下的部分和testFramesDecoded()是相同的。
+
+```
+
+> * 9.2.2 册数出站消息
+```text
+下面使用EmbeddedChannel来测试一个编码器形成的ChannelOutboundHandler，编码器是一种将消息格式转化为另一种的组件。你将在下一章中非常详细地学习编码器和解码器，所以现在只需要简单地体积正在测试的处理器--AbsIntegerEncoder,它是Netty的MessageToMessageEncoder的一个特殊化的实现，用于将负值证书转换为绝对值。
+该实例将会按照下列方式工作：
+1、持有AbsIntegerEncoder的EmbeddedChannel将会以4字节的负整数的形式写出站数据；
+2、编码器将从传入的ByteBuf中读取每个负整数，并将会调用Math.abs()方法来获取其绝对值
+3、编码器将会把每个负整数的绝对值写到ChannelPipeline中。
+
+```
+![图9-3 通过AbsIntegerEncoder编码](./doc/image/通过AbsIntegerEncoder编码.png)
+```java
+// 代码清单 9-3 AbsIntegerEncoder
+// 扩展MessageToMessageEncoder以将一个消息编码为另外一种格式
+public class AbsIntegerEncoder extends MessageToMessageEncoder<ByteBuf> {
+    @Override protected void encode(ChannelHandlerContext channelHandlerContext, ByteBuf in,List<Object> out) throws Exception {
+        while( in.readableBytes() >= 4) {// 检查是否有足够的字节用来编码
+            // 从输入的ByteBuf中读取下一个证书，并且计算其绝对值
+            int value = Math.abs(in.readInt());
+            // 将该证书写入到编码消息的List中
+            out.add(value);
+        }
+    }
+}
+```
+```java
+// 代码清单9-4 测试AbsIntegerEncoder
+
+public class AbsIntegerEncoderTest {
+    @Test
+    public void testEncoded() {
+        //1 创建一个ByteBuf，并且写入9个负整数
+        ByteBuf buf = Unpooled.buffer();
+        for (int i = 1; i < 10; i++) {
+            buf.writeInt(i * -1);
+        }
+        // 2 创建一个EmbeddedChannel，并安装一个要测试的AbsIntegerEncoder
+        EmbeddedChannel channel = new EmbeddedChannel(new AbsIntegerEncoder());
+        // 3 写入ByteBuf,并断言调用readOutbound()方法将会产生数据
+        assertTrue(channel.writeOutbound(buf));
+        // 4 将该Channel标记为已完成状态
+        assertTrue(channel.finish());
+        
+        // read bytes 5 读取所产生的消息，并断言它们包含了对应的绝对值
+        for (int i = 1; i < 10; i++) {
+            assertEqualse(i, channel.readOutbound());
+        }
+        assertNull(channel.readOutbound());
+    }
+}
+下面是代码中执行的步骤：
+1、将4字节的负整数写入到一个新的ByteBuf中。
+2、创建一个EmbeddedChannel，并为它分配一个ABSIntegerEncoder
+3、调用EmbeddedChannel上的writeOutbound()方法来写入该ByteBuf。
+4、标记该Channel为已完成状态
+5、从EmbeddedChannel的出站端读取所有的整数，并验证是否只产生了绝对值。
+```
+
+* 9.3 测试异常处理
+```text
+应用程序通常需要执行比转换数据更复杂的任务。例如可能需要处理格式不正确的输入或者过量的数据。下一个实例中如果所读取的字节数超出了某个特定的限制，将会抛出一个TooLongFrameException，这是一种经常用来方法资源被耗尽的方法。图9-4中最大帧大小已经被设置为3字节。如果一个帧的大小超出了该限制，则程序将会丢弃它的字节并跑出一个TooLongFrameException。位于ChannelPipeline中的其他ChannelHandler可以选择在exceptionCaught()方法中处理该异常或者忽略
+
+```
+![图9-4通过FrameChunkDecoder解码](./doc/image/图9-4通过FrameChunkDecoder解码.png)
+```java
+// 代码清单9-5 FrameChunkDecoder
+// 扩展ByteToMessageDecoder以将入站字节解码为消息
+public class FrameChunkDecoder extends ByteToMessageDecoder {
+    private final int maxFrameSize;
+    
+    // 指定将要产生的帧的最大允许大小
+    public FrameChunkDecoder(int maxFrameSize) {
+        this.maxFrameSize = maxFrameSize;
+    }
+    
+    @Override
+    protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
+        int readableBytes = in.readableBytes();
+        if (readableBytes > maxFrameSize) {// 如果该帧太大，则丢弃它并抛出一个TooLongFrameException....
+            // discard the butes
+            in.clear();
+            throw new TooLongFrameException();
+        }
+        // ..否则，从ByteBuf中读取一个新的帧
+        ByteBuf buf = in.readBytes(readableBytes);
+        // 将该帧添加到解码器消息的List中
+        out.add(buf);
+    }
+}
+```
+```java
+// 代码清单9-6 测试FrameChunkDecoder
+public class FrameChunkDecoderTest {
+    @Test
+    public void testFramesDecoded() {
+        // 创建一个ByteBuf，并项它写入9字节
+        ByteBuf buf = Unpooled.buffer();
+        for(int i = 0; i < 9; i++) {
+            buf.writeByte(i);
+        }
+        ByteBuf input = buf.duplicate();
+        
+        EmbeddedChannel channel = new EmbeddedChannel(new FrameChunkDecoder(3));// 创建一个EmbeddedChannel,并向其安装一个帧大小为3字节的FixedLengthFrameDecoder
+        
+        // 向它写入2字节，并断言它们将会产生一个新帧
+        assertTrue(channel.writeInbound(input.readBytes(2)));
+        
+        try{
+            // 写入一个4字节大小的帧，并捕获预期的TooLongFrameException
+            channel.writeInbound(input.readBytes(4));
+            // 如果上面没有抛出异常，那么就会到达这个断言，并且测试失败
+            Assert.fail();
+        } catch (TooLongFrameException e) {
+            // expected exception
+        }
+        // 写入剩余的2字节，并断言将会产生一个有效帧
+        assertTrue(channel.writeInbound(input.readBytes(3)));
+        // 将该Channel标记为已完成状态
+        assertTrue(channel.finish());
+        
+        // Read frames读取产生的消息，并且验证值
+        ByteBuf read = (ByteBuf) channel.readInbound();
+        assertEquals(buf.readSlice(2), read);
+        read.release();
+        
+        read = (ByteBuf) channel.readInbound();
+        assert Equals(buf.skipBytes(4).readSlice(3), read);
+        read.release();
+        buf.release();
+    }
+}
+// 这里对数据异常的抛出处理可以容易的检测数一个Exception是否在处理数据的过程中已经被处理了。
+```
+
