@@ -1,0 +1,1 @@
+* [ubuntu](http://cdimage.ubuntu.com/releases/18.04.2/release/?_ga=2.137289012.527039841.1564540134-1061844453.1564540134)
