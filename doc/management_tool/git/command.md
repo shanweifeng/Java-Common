@@ -14,3 +14,5 @@ env GIT_SSL_NO_VERIFY=true git clone https://github.com/apereo/cas.git
 git config http.sslVerify "false"
 
 git config  --global   http.sslVerify "false"
+
+* [多git账号设置](https://www.cnblogs.com/popfisher/p/5731232.html)

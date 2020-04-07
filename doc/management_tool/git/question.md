@@ -17,4 +17,8 @@ env GIT_SSL_NO_VERIFY=true git clone https://github.com/apereo/cas.git
 git config http.sslVerify "false"
 
 git config  --global   http.sslVerify "false"
+-- 刷新分支
+git remote update origin --prune
+
 ```
+
