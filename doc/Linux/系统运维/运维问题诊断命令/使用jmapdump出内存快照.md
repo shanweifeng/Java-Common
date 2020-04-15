@@ -1,0 +1,1 @@
+jmap -dump:format=b,file=/usr/jdk/dump/elipse.hprof 3715
