@@ -155,3 +155,9 @@ Host is not allowed to connect to this MySQL server解决方法
 执行use mysql;
 执行update user set host = '%' where user = 'root';这一句执行完可能会报错，不用管它。
 执行FLUSH PRIVILEGES;
+
+
+mvn deploy:deploy-file -DgroupId=com.sun -DartifactId=jai_core -Dversion=1.1.3 -Dfile=C:\Users\Administrator\Desktop\jai_core\jai_core.jar -Durl=http://47.96.109.118:8081/repository/maven-public/ -DrepositoryId=Snapshots
+
+单点登录CAS使用记（七）：关于服务器超时以及客户端超时的分析
+https://www.cnblogs.com/notDog/p/5276643.html
