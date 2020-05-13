@@ -61,3 +61,15 @@ prometheus监控：https://prometheus.io/
 grafana数据可视化：https://grafana.com/
 
 ```
+
+
+https://blog.csdn.net/ydwyyy/article/details/79487995
+
+https://elasticsearch.cn/article/190 es优化 
+https://blog.csdn.net/donghaixiaolongwang/article/details/79208457  慢查询日志配置
+
+https://blog.csdn.net/weixin_43557605/article/details/102799734 常用命令
+
+https://blog.csdn.net/laoyang360/article/details/100070285  高级调优方法论之——根治慢查询！
+
+https://cloud.tencent.com/developer/article/1357698 为什么Elasticsearch查询变得这么慢了？
