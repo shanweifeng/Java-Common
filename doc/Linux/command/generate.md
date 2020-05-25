@@ -1,23 +1,5 @@
 ### 一般的linux命令
 
-* CPU大小
-```text
-cat /proc/cpuinfo |grep “model name” && cat /proc/cpuinfo |grep “physical id” //试验未成功
-```
->说明：Linux下可以在/proc/cpuinfo中看到每个cpu的详细信息。但是对于双核的cpu，在cpuinfo中会看到两个cpu。常常会让人误以为是两个单核的cpu。<p> 
- 其实应该通过Physical Processor ID来区分单核和双核。而Physical Processor ID可以从cpuinfo或者dmesg中找到. flags 如果有 ht 说明支持超线程技术 判断物理CPU的个数可以查看physical id 的值，相同则为同一个物理CPU 
- 可以看到上面，这台机器有两个双核的CPU，ID分别是0和3，大小是2.8G。
- 
- * 内存大小
- ```text
-cat /proc/meminfo |grep MemTotal 
-```
-
-* 硬盘大小
-```text
-fdisk -l |grep Disk 
-```
-
 #### 查看Linux硬件信息
 * 查看内核/操作系统/CPU信息的linux系统信息命令 
 ```text
@@ -26,12 +8,6 @@ uname -a
 #### 查看操作系统版本，是数字1不是字母L 
 ```text
 head -n 1 /etc/issue 
-```
-```
-#### 查看CPU信息的linux系统信息命令 
-```text
-cat /proc/cpuinfo 
-```
 ```
 #### 查看计算机名的linux系统信息命令 
 ```text
@@ -65,14 +41,7 @@ df -h
 ```text
 du -sh
 ```
- #### 查看内存总量 
- ```text
- grep MemTotal /proc/meminfo 
- ```
-#### 查看空闲内存量 
-```text
-grep MemFree /proc/meminfo
-```
+
 #### 查看系统运行时间、用户数、负载 
 ```text
 uptime
