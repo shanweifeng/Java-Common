@@ -13,7 +13,7 @@
 -- 启动映射后的容器
 命令：docker run --name logstash1 -p 5044:5044 -v /opt/logstash/node1/config/:/usr/share/logstash/config/ -v /opt/logstash/node1/data/:/usr/share/logstash/data/ -v /opt/logstash/node1/logs/:/usr/share/logstash/logs/ -v /opt/logstash/pipeline/:/usr/share/logstash/pipeline/  docker.elastic.co/logstash/logstash:7.2.0
 ```
-
+* filter
 ```java
 input {
   beats {
