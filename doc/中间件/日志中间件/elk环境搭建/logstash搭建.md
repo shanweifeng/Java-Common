@@ -172,3 +172,110 @@ output {
   }
 }
 ```
+
+
+
+```java
+input{
+
+     kafka {
+        bootstrap_servers => "127.0.0.1:9092"
+        topics => "ip"
+		client_id => "ip_b"
+        group_id => "ip_a"
+        auto_offset_reset => "earliest"
+        consumer_threads => 2
+        # 从kafka获取json数据解析
+        codec => "json"
+      }
+
+      kafka {
+        bootstrap_servers => "127.0.0.1:9092"
+        topics => "ips"
+		client_id => "ips_b"
+        group_id => "ips_a"
+        auto_offset_reset => "earliest"
+        consumer_threads => 2
+        codec => "json"
+      }
+
+  }
+  
+filter{
+
+  grok {
+      # 移除不需要的字段
+      remove_field => ["@timestamp","@version"]
+  }
+
+ mutate {
+ 	# 增加一个request_time_format用于标识时间
+     add_field => {
+        "request_time_format" => ""
+     }
+ }
+
+ json {
+   source => "message"
+ }
+# 根据标识字段判断使用不同的过滤规则
+ if[fields][log_source] == "ip" {
+    date {
+    # 这里是格式化时间2019-09-26 19:17:56
+      match =>  ["get_time" ,"yyyy-MM-dd HH:mm:ss"]
+      target => "request_time_format"
+      locale => "cn"
+    }
+    ruby {   
+    	# 真实的时间是比中国时间慢八个小时，这里把时间加上去
+        code => "event.set('request_time_format', event.get('request_time_format').time.localtime + 8*60*60)"
+    } 
+  }
+	 if[fields][log_source] == "ips" {
+    date {
+    # 格式化微秒时间UNIX_MS，具体请参看文档
+      match =>  [ "request_time" ,"yyyy-MM-dd HH:mm:ss,SSS" , "UNIX_MS" ]
+     # 过滤的时间格式赋值到request_time_format上
+      target => "request_time_format"
+      locale => "cn"
+    }
+    ruby {   
+        code => "event.set('request_time_format', event.get('request_time_format').time.localtime + 8*60*60)"
+    }
+  }
+}
+
+output{
+    # elast参数配置
+    # 输出信息
+     if [action_method] == "ip" {
+          elasticsearch {
+             hosts => ["127.0.0.1:9200"]
+            # 索引的名称
+             index => "ip"
+             codec => line { format => "%{message}"}
+         }
+      }
+    # if[fields][log_source] == "ips" {
+      elasticsearch {
+    		hosts => ["127.0.0.1:9200"]
+         # 索引的名称
+        index => "ips"
+         codec => line { format => "%{message}"}
+       }
+     }
+     # 打印输出传输到ElasticSearch
+    stdout{
+        codec => rubydebug
+    }
+
+}
+```
+* 检查logstash配置文件配置是否正确
+```text
+./bin/logstash -f ./config/logstash-test.conf --config.test_and_exit
+```
+* 运行logstash 
+```text
+./bin/logstash -f config/logstash-test.conf
+```

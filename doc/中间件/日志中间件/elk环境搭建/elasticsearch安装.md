@@ -66,3 +66,4 @@ xpack.security.enabled: false     # 是否开启xpack安全认证
 * [elasticsearch config](https://www.elastic.co/guide/en/elasticsearch/reference/current/important-settings.html#path-settings)
 * [elasticsearch wiki](https://github.com/13428282016/elasticsearch-CN/wiki/es-setup--elasticsearch)
 * [bootstrap.memory_lock](https://www.elastic.co/guide/en/elasticsearch/reference/current/setup-configuration-memory.html#mlockall)
+* [阿里云elasticsearch](https://help.aliyun.com/product/57736.html)
